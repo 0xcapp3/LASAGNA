@@ -2,7 +2,7 @@
 
 ## People
 
-[Alessio Cappellini](https://www.linkedin.com/in/alessio-cappellini-46496218a/)
+[Alessio Cappellini](https://www.linkedin.com/in/alessiocappellini/)
 
 [Dario Petrillo](https://www.linkedin.com/in/dario-petrillo/)
 
