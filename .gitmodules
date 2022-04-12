@@ -1,3 +1,6 @@
 [submodule "code/SPBTLE-RF-RIOT"]
 	path = code/SPBTLE-RF-RIOT
 	url = https://github.com/dp1/SPBTLE-RF-RIOT
+[submodule "code/RIOT"]
+	path = code/RIOT
+	url = https://github.com/RIOT-OS/RIOT
