@@ -10,13 +10,13 @@ It is designed for port operators helping to identify containers that are shippe
 
 How? Fitting containers with a small, cheap and reusable beacon, and listen for messages with receivers spread throughout the port area.
 
-![General view](img/general-view.png "General view")
+![General view](../img/general-view.png "General view")
 
 Beacons are detected by receivers in close proximity, and this is used to pinpoint their location:
-![Beacon tracking](img/tracking.jpg "Beacon tracking")
+![Beacon tracking](../img/tracking.jpg "Beacon tracking")
 
 With this information, routes in the port can be reconstructed:
-![Route reconstruction](img/route.jpg "Route reconstruction")
+![Route reconstruction](../img/route.jpg "Route reconstruction")
 
 ## Impact
 

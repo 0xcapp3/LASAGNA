@@ -2,7 +2,7 @@
 
 ## High level diagram
 
-![Alt text](img/diagram.png "a title")
+![Alt text](../img/diagram.png "a title")
 
 ## Components
 
@@ -20,7 +20,7 @@ The main technical issue is that the device will be attached to every object of 
 
 The transmission period will be determined through experimentation in order to provide most accurate data without saturating the network. If the evaluation shows this to be required a movement sensor will be added in order to limit the updates if the beacon is stationary.
 
-![Beacon schematic](img/beacon-schematic.png "Beacon schematic")
+![Beacon schematic](../img/beacon-schematic.png "Beacon schematic")
 
 ### Receivers
 
@@ -28,7 +28,7 @@ The receivers are much less power constrained as they can use either direct powe
 
 The devices will be implemented using a nucleo f401re board with a BLE receiver and a LoRa antenna. Each received contains a GPS module in order to get accurate position and timing information to tag the received data with.
 
-![Receiver](img/receiver.png "Receiver")
+![Receiver](../img/receiver.png "Receiver")
 
 ### Network
 
@@ -36,7 +36,7 @@ The network is split into two components, the BLE section and the LoRaWAN sectio
 
 The BLE section is where most of the traffic will happen, since many containers can be next to each other, while after aggregating the data the load on the LoRa network will be much lower.
 
-![Network](img/network.png "Network")
+![Network](../img/network.png "Network")
 
 ### Cloud storage
 
