@@ -1,4 +1,5 @@
 # Concept
+> This is the second version of this document. The previous version can be found [here](../first_delivery/Concept.md)
 
 ## Challenge
 Ports currently track ships and trucks, but individual containers are harder to track.

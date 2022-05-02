@@ -1,4 +1,5 @@
 # Technology
+> This is the second version of this document. The previous version can be found [here](../first_delivery/Technology.md)
 
 ## High level diagram
 
