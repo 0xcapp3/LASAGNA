@@ -33,8 +33,8 @@ Our system is designed for port operators in order to track the movement of cont
 - [Technology](deliveries/second_delivery/Technology.md)
 - [Evaluation](deliveries/second_delivery/Evaluation.md)
 
-<!-- ## Video presentations -->
+## Video presentations
 
-<!-- - [Concept](https://www.youtube.com/watch?v=0jmWKhIW0a0)
-- [Technology](https://www.youtube.com/watch?v=yDCP6w-mlrI)
-- [Evaluation](https://www.youtube.com/watch?v=wssua-wx_lg) -->
+- [Technology and demo](https://youtu.be/lHYehsWAC2s)
+- [Evaluation](https://youtu.be/ZsW914pgZrg)
+- [Future plans](https://youtu.be/Xtj34hucy2o)
