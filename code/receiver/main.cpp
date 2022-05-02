@@ -1,3 +1,5 @@
+#define ENABLE_DEBUG 0
+
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -89,14 +91,18 @@ static uint8_t appkey[LORAMAC_APPKEY_LEN];
 int8_t sample_rate = 15; // X s
 
 // Functions
-int8_t lora_initialization(void)
-{
+int8_t lora_initialization(void) {
 
     /* Convert identifiers and application key */
     // lasagna-dev0 infos
-    fmt_hex_bytes(deveui, "70B3D57ED004F319");
-    fmt_hex_bytes(appeui, "00000000000000A2");
-    fmt_hex_bytes(appkey, "3C95971BFCC9C24FD899D3767495D4D9");
+    // fmt_hex_bytes(deveui, "70B3D57ED004F319");
+    // fmt_hex_bytes(appeui, "00000000000000A2");
+    // fmt_hex_bytes(appkey, "3C95971BFCC9C24FD899D3767495D4D9");
+
+    // lasagna-dev3 infos
+    fmt_hex_bytes(deveui, "E24F43FFFE39CB71");
+    fmt_hex_bytes(appeui, "00000000000000A1");
+    fmt_hex_bytes(appkey, "FA401D00EBF0F36C56E2D8409E2D5352");
 
     /* Initialize the radio driver */
 #if IS_USED(MODULE_SX127X)
@@ -322,23 +328,28 @@ void advertising_report_cb(le_advertising_info *adv_in)
 #endif
 }
 
+// static const shell_command_t commands[] = {
+    // {"bmp","Read BMP280 values", bmp280_handler},
+    // {"ph", "Read pH value", sen0161_handler},
+    // {"bmc","Periodically reads BMP280 values", bmp280_thread_handler},
+    // { NULL, NULL, NULL }
+// };
+
+// char line_buf[SHELL_DEFAULT_BUFSIZE];
+
 int main() {
-    puts("[+] Starting LoRa connection");
-    lora_initialization();
-
     int8_t res;
-    
 
-    printf("LoRa thread...\r\n");
+    puts("[+] Starting LoRa connection");
 
     // Connection initialization
     res = lora_initialization();
     if (res != 0)
     {
-        printf("LoRa initialization failed with **Error %d**\r\n", res);
+        printf("[-] LoRa initialization failed with **Error %d**\r\n", res);
         return (res);
     }
-    puts("LoRa initialization completed successfully\r\n");    
+    puts("[+] LoRa initialization completed successfully\r\n");    
 
     puts("[+] Starting BLE");
     if (BTLE.begin())
@@ -362,4 +373,7 @@ int main() {
         // Update the BLE module state
         BTLE.update();
     }
+
+     /* start shell */
+    // shell_run(commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 }
