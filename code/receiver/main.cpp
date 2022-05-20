@@ -363,8 +363,7 @@ int main() {
 
     if (ObserverService.begin(SERVER_BDADDR)) {
         puts("[-] Observer init failed");
-        while (1)
-            ;
+        while (1);
     }
 
     puts("[+] Initialized");
