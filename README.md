@@ -10,19 +10,8 @@
 
 Our system is designed for port operators in order to track the movement of containers within the port, and in particular to detect mishaps during routing that lead to containers being shipped to the wrong place and to identify routes that are needlessly long leading to waste of resource, longer shipping time and higher usage of limited container spots in a port.
 
-# First delivery
-
-## Documents
-
-- [Concept](deliveries/first_delivery/Concept.md)
-- [Technology](deliveries/first_delivery/Technology.md)
-- [Evaluation](deliveries/first_delivery/Evaluation.md)
-
-## Video presentations
-
-- [Concept](https://www.youtube.com/watch?v=0jmWKhIW0a0)
-- [Technology](https://www.youtube.com/watch?v=yDCP6w-mlrI)
-- [Evaluation](https://www.youtube.com/watch?v=wssua-wx_lg)
+# Blog post
+- [The BLE story](https://www.hackster.io/lasagna/interfacing-with-spbtle-rf-on-riot-os-4664f8)
 
 # Second delivery
 
@@ -38,3 +27,18 @@ Our system is designed for port operators in order to track the movement of cont
 - [Technology and demo](https://youtu.be/lHYehsWAC2s)
 - [Evaluation](https://youtu.be/ZsW914pgZrg)
 - [Future plans](https://youtu.be/Xtj34hucy2o)
+
+# First delivery
+
+## Documents
+
+- [Concept](deliveries/first_delivery/Concept.md)
+- [Technology](deliveries/first_delivery/Technology.md)
+- [Evaluation](deliveries/first_delivery/Evaluation.md)
+
+## Video presentations
+
+- [Concept](https://www.youtube.com/watch?v=0jmWKhIW0a0)
+- [Technology](https://www.youtube.com/watch?v=yDCP6w-mlrI)
+- [Evaluation](https://www.youtube.com/watch?v=wssua-wx_lg)
+
