@@ -10,8 +10,9 @@
 
 Our system is designed for port operators in order to track the movement of containers within the port, and in particular to detect mishaps during routing that lead to containers being shipped to the wrong place and to identify routes that are needlessly long leading to waste of resource, longer shipping time and higher usage of limited container spots in a port.
 
-# Blog post
+# Blog posts
 - [The BLE story](https://www.hackster.io/lasagna/interfacing-with-spbtle-rf-on-riot-os-4664f8)
+- [Upgrading the firmware on a I-NUCLEO-LRWAN1 board](https://www.hackster.io/lasagna/upgrading-the-firmware-on-a-i-nucleo-lrwan1-board-8b33cb)
 
 # Second delivery
 
