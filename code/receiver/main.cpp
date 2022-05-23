@@ -31,6 +31,8 @@
 #include "periph/uart.h"
 #include "isrpipe.h"
 
+#include "mutex.h"
+
 // LRWAN1 BOARD
 #define PIN_BLE_SPI_nCS GPIO_PIN(PORT_A, 4)
 #define PIN_BLE_SPI_RESET GPIO_PIN(PORT_A, 8)
@@ -62,7 +64,44 @@ struct {
     int timestamp;
 } gps_state = {0,0,0};
 
-// Functions
+char lora_thread_stack[THREAD_STACKSIZE_MAIN];
+
+void* lora_thread(void* arg)
+{
+    (void)arg;
+
+    puts("[+] LoRa thread...");
+
+    char buffer[200];
+    memset(buffer, 0, 200);
+
+    while (1)
+    {
+        if(gps_state.timestamp == 0) {
+            puts("Waiting for GPS lock");
+        } else {
+
+            // Send data via Lora
+            // int id_bcn = 1234;
+            int id_rcvr = 001;
+            sprintf(buffer, message_structure, "Asd", id_rcvr, gps_state.lat, gps_state.lon, gps_state.timestamp);
+            printf("Sending: %s\r\n", buffer);
+
+            /* Try to send the message */
+            uint8_t ret = semtech_loramac_send(&loramac, (uint8_t *)buffer, strlen(buffer));
+            if (ret != SEMTECH_LORAMAC_TX_DONE)
+            {
+                printf("[X] Cannot send message '%s', returned code: %u\n", buffer, ret);
+            }
+            puts("--------------");
+
+        }
+        xtimer_sleep(sample_rate);
+    }
+
+    return NULL;
+}
+
 int8_t lora_initialization(void) {
 
     /* Convert identifiers and application key */
@@ -132,55 +171,6 @@ int8_t lora_initialization(void) {
     return (0);
 }
 
-int _lora_thread(void)
-{
-    int8_t res;
-    uint8_t ret;
-
-    printf("LoRa thread...\r\n");
-
-    // Connection initialization
-    res = lora_initialization();
-    if (res != 0)
-    {
-        printf("LoRa initialization failed with **Error %d**\r\n", res);
-        return (res);
-    }
-    puts("LoRa initialization completed successfully\r\n");
-
-    const char message_structure2[] = "{ id_beacon: %d, id_receiver: %d, lon: %f, lat: %f , timestamp: %d }";
-    char buffer[200];
-    memset(buffer, 0, 200);
-
-    while (1)
-    {
-        if(gps_state.timestamp == 0) {
-            puts("Waiting for GPS lock");
-        } else {
-
-            // Send data via Lora
-            int id_bcn = 1234;
-            int id_rcvr = 001;
-            sprintf(buffer, message_structure2, id_bcn, id_rcvr, gps_state.lon, gps_state.lat, gps_state.timestamp);
-            printf("Sending: %s\r\n", buffer);
-
-            /* Try to send the message */
-            ret = semtech_loramac_send(&loramac, (uint8_t *)buffer, strlen(buffer));
-            if (ret != SEMTECH_LORAMAC_TX_DONE)
-            {
-                printf("Cannot send message '%s', returned code: %u\n", buffer, ret);
-                return (-1);
-            }
-            puts("--------------");
-
-        }
-        xtimer_sleep(sample_rate);
-    }
-
-    /* should be never reached */
-    return (0);
-}
-
 uint8_t tmp_buffer[sizeof(le_advertising_info) + 256];
 
 void advertising_report_cb(le_advertising_info *adv_in)
@@ -189,38 +179,17 @@ void advertising_report_cb(le_advertising_info *adv_in)
     le_advertising_info *adv = (le_advertising_info *)tmp_buffer;
 
     bool ok = false;
-    uint8_t data[32];
-    for (int i = 0; i + 15 < adv->data_length; i++)
+    uint8_t tmp_bid[6];
+    for (int i = 0; i + 15 < adv->data_length && !ok; i++)
     {
-        if (adv->data_RSSI[i] == 'L' && adv->data_RSSI[i + 1] == 'A' && adv->data_RSSI[i + 2] == 'S' &&
-            adv->data_RSSI[i + 3] == 'A' && adv->data_RSSI[i + 4] == 'G' && adv->data_RSSI[i + 5] == 'N' && adv->data_RSSI[i + 6] == 'A')
+        if(!memcmp(adv->data_RSSI + i, "LASAGNA", 7))
         {
-
-            if (adv->data_RSSI[i + 10] == 0x01 && adv->data_RSSI[i + 11] == 0x02 && adv->data_RSSI[i + 12] == 0x03 && adv->data_RSSI[i + 13] == 0x04 &&
-                adv->data_RSSI[i + 14] == 0x05 && adv->data_RSSI[i + 15] == 0x06)
-            {
-
-                memcpy(data, &adv->data_RSSI[i - 14], 32);
-                ok = true;
-            }
+            memcpy(tmp_bid, adv->data_RSSI + i + 10, 6);
+            ok = true;
         }
     }
     if (!ok)
         return;
-
-    uint8_t tmp_bid[6];
-    printf("[=] data parsed: ");
-    for (int i = 0; i < 32; i++)
-    {
-        printf(" %02X", data[i]);
-        if (data[i] == 0x01 && data[i + 1] == 0x02 && data[i + 2] == 0x03 &&
-            data[i + 3] == 0x04 && data[i + 4] == 0x05 && data[i + 5] == 0x06)
-        {
-
-            memcpy(tmp_bid, &data[i], 6);
-        }
-    }
-    printf("\r\n");
 
     printf("[=] beacon id: ");
     for (int i = 0; i < 6; i++)
@@ -229,30 +198,16 @@ void advertising_report_cb(le_advertising_info *adv_in)
     }
     printf("\r\n");
 
-    char bid[6];
-    // const char* bid_format = "%02X %02X %02X %02X %02X %02X";
-    int length = snprintf(NULL, 0, "%02X %02X %02X %02X %02X %02X", tmp_bid[0], tmp_bid[1], tmp_bid[2], tmp_bid[3], tmp_bid[4], tmp_bid[5]);
-    // id = malloc(length + 1);
-    /* TODO: check malloc return value*/
-    snprintf(bid, length + 1, "%02X %02X %02X %02X %02X %02X", tmp_bid[0], tmp_bid[1], tmp_bid[2], tmp_bid[3], tmp_bid[4], tmp_bid[5]);
-
-    int rid = 1;
-
-    char buffer[200];
-    memset(buffer, 0, 200);
-
-    // int id_bcn = 1234;
-    // int id_rcvr = 001;
-    sprintf(buffer, message_structure, bid, rid, gps_state.lat, gps_state.lon, gps_state.timestamp);
-    printf("Sending: %s\r\n", buffer);
+    char bid[32];
+    snprintf(bid, sizeof(bid), "%02X %02X %02X %02X %02X %02X", tmp_bid[0], tmp_bid[1], tmp_bid[2], tmp_bid[3], tmp_bid[4], tmp_bid[5]);
 
     /* Try to send the message */
-    uint8_t ret = semtech_loramac_send(&loramac, (uint8_t*) buffer, strlen(buffer));
-    if (ret != SEMTECH_LORAMAC_TX_DONE) {
-        printf("Cannot send message '%s', returned code: %u\r\n", buffer, ret);
-        // return (-1);
-    }
-    puts("--------------");
+    // uint8_t ret = semtech_loramac_send(&loramac, (uint8_t*) buffer, strlen(buffer));
+    // if (ret != SEMTECH_LORAMAC_TX_DONE) {
+    //     printf("Cannot send message '%s', returned code: %u\r\n", buffer, ret);
+    //     // return (-1);
+    // }
+    // puts("--------------");
 
 #ifdef DEBUG
     puts("=== Advertising report ===");
@@ -361,9 +316,14 @@ int main() {
     if (res != 0)
     {
         printf("[-] LoRa initialization failed with **Error %d**\r\n", res);
-        return (res);
+        // return res;
+    } else {
+        puts("[+] LoRa initialization completed successfully\r\n");
+
+        thread_create(lora_thread_stack, sizeof(lora_thread_stack),
+            THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+            lora_thread, NULL, "lora_thread");
     }
-    puts("[+] LoRa initialization completed successfully\r\n");
 
     puts("[+] Starting BLE");
     if (BTLE.begin())
