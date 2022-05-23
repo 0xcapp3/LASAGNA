@@ -31,9 +31,6 @@
 #include "periph/uart.h"
 #include "isrpipe.h"
 
-// shell includes
-// #include "shell.h"
-
 // LRWAN1 BOARD
 #define PIN_BLE_SPI_nCS GPIO_PIN(PORT_A, 4)
 #define PIN_BLE_SPI_RESET GPIO_PIN(PORT_A, 8)
@@ -45,7 +42,7 @@ SPBTLERFClass BTLE(BTLE_SPI, PIN_BLE_SPI_nCS, PIN_BLE_SPI_IRQ, PIN_BLE_SPI_RESET
 
 // #define DEBUG
 
-static const char message_structure[] = "{\"beacon_id\":\"%s\", \"receiver_id\":\"%d\", \"lat\":\"%f\", \"lon\":\"%f\", \"timestamp\":\"%d\"}"; // \"beacon_data\":\"%s\", \"device_data\":\"%s\"
+static const char message_structure[] = "{\"beacon_id\":\"%s\", \"receiver_id\":\"%d\", \"lat\":\"%f\", \"lon\":\"%f\", \"timestamp\":\"%d\"}";
 static semtech_loramac_t loramac;
 #if IS_USED(MODULE_SX127X)
 static sx127x_t sx127x;
@@ -281,15 +278,6 @@ void advertising_report_cb(le_advertising_info *adv_in)
 #endif
 }
 
-// static const shell_command_t commands[] = {
-    // {"bmp","Read BMP280 values", bmp280_handler},
-    // {"ph", "Read pH value", sen0161_handler},
-    // {"bmc","Periodically reads BMP280 values", bmp280_thread_handler},
-    // { NULL, NULL, NULL }
-// };
-
-// char line_buf[SHELL_DEFAULT_BUFSIZE];
-
 isrpipe_t isrpipe;
 uint8_t isrpipe_buf[128];
 
@@ -357,8 +345,6 @@ void* gps_reader_thread(void* arg) {
 }
 
 int main() {
-    int8_t res;
-
     thread_create(gps_thread_stack, sizeof(gps_thread_stack),
         THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
         gps_reader_thread, NULL, "gps_reader_thread");
@@ -366,7 +352,7 @@ int main() {
     puts("[+] Starting LoRa connection");
 
     // Connection initialization
-    res = lora_initialization();
+    int8_t res = lora_initialization();
     if (res != 0)
     {
         printf("[-] LoRa initialization failed with **Error %d**\r\n", res);
@@ -395,7 +381,4 @@ int main() {
         // Update the BLE module state
         BTLE.update();
     }
-
-     /* start shell */
-    // shell_run(commands, line_buf, SHELL_DEFAULT_BUFSIZE);
 }

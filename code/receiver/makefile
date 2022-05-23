@@ -15,30 +15,18 @@ DEVELHELP ?= 0
 # Change this to 0 show compiler invocation lines by default:
 QUIET ?= 1
 
-# shell
-# USEMODULE += shell
-# USEMODULE += shell_commands
-
-# USEMODULE += printf_float
-
-# USEMODULE += uart
-
+USEMODULE += xtimer
+USEMODULE += fmt
+USEMODULE += printf_float
 USEMODULE += isrpipe
 
 # GPS
 USEPKG += minmea
 
-USEMODULE += xtimer
-USEMODULE += fmt
-
-USEMODULE += printf_float
-
 # LoRa
 # Default region is Europe and default band is 868MHz
 LORA_REGION ?= EU868
 USEMODULE += semtech_loramac_rx
-
-# Include the Semtech-loramac package
 USEPKG += semtech-loramac
 
 # Default radio driver is Semtech SX1276 (used by the B-L072Z-LRWAN1 board)
