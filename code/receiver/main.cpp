@@ -29,55 +29,21 @@
 // GPS includes
 #include "minmea.h"
 #include "periph/uart.h"
-// #include "uart_half_duplex.h"
 #include "isrpipe.h"
 
 // shell includes
 // #include "shell.h"
 
-// DISCO BOARD
-#ifdef BOARD_B_L475E_IOT01A
-#define PIN_BLE_SPI_nCS GPIO_PIN(PORT_D, 13)
-#define PIN_BLE_SPI_RESET GPIO_PIN(PORT_A, 8)
-#define PIN_BLE_SPI_IRQ GPIO_PIN(PORT_E, 6)
-#define PIN_BLE_LED GPIO_PIN(PORT_A, 5)
-spi_t BTLE_SPI = SPI_DEV(2);
-uint8_t SERVER_BDADDR[] = {0x12, 0x34, 0x00, 0xE1, 0x80, 0x03};
-#endif
-
-// NUCLEO BOARD
-#ifdef BOARD_NUCLEO_F401RE
-#define PIN_BLE_SPI_nCS GPIO_PIN(PORT_A, 1)
-#define PIN_BLE_SPI_RESET GPIO_PIN(PORT_A, 8)
-#define PIN_BLE_SPI_IRQ GPIO_PIN(PORT_A, 0)
-#define PIN_BLE_LED GPIO_PIN(PORT_A, 5)
-spi_t BTLE_SPI = SPI_DEV(0);
-#endif
-
 // LRWAN1 BOARD
-#ifdef BOARD_B_L072Z_LRWAN1
 #define PIN_BLE_SPI_nCS GPIO_PIN(PORT_A, 4)
 #define PIN_BLE_SPI_RESET GPIO_PIN(PORT_A, 8)
 #define PIN_BLE_SPI_IRQ GPIO_PIN(PORT_A, 0)
 #define PIN_BLE_LED GPIO_PIN(PORT_B, 6)
 spi_t BTLE_SPI = SPI_DEV(0);
 uint8_t SERVER_BDADDR[] = {0x12, 0x34, 0x00, 0xE1, 0x80, 0x04};
-#endif
-
-// #define DEBUG
-
-// Configure BTLE pins
 SPBTLERFClass BTLE(BTLE_SPI, PIN_BLE_SPI_nCS, PIN_BLE_SPI_IRQ, PIN_BLE_SPI_RESET, PIN_BLE_LED);
 
-// Comment this line to use URL mode
-//  #define USE_UID_MODE
-#ifdef USE_UID_MODE
-// Beacon ID, the 6 last bytes are used for NameSpace
-uint8_t NameSpace[] = "ST BTLE";
-uint8_t beaconID[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6};
-#else
-char url[] = "www.myurl.com";
-#endif
+// #define DEBUG
 
 static const char message_structure[] = "{\"beacon_id\":\"%s\", \"receiver_id\":\"%d\", \"lat\":\"%f\", \"lon\":\"%f\", \"timestamp\":\"%d\"}"; // \"beacon_data\":\"%s\", \"device_data\":\"%s\"
 static semtech_loramac_t loramac;
@@ -103,12 +69,6 @@ struct {
 int8_t lora_initialization(void) {
 
     /* Convert identifiers and application key */
-    // lasagna-dev0 infos
-    // fmt_hex_bytes(deveui, "70B3D57ED004F319");
-    // fmt_hex_bytes(appeui, "00000000000000A2");
-    // fmt_hex_bytes(appkey, "3C95971BFCC9C24FD899D3767495D4D9");
-
-    // lasagna-dev3 infos
     fmt_hex_bytes(deveui, "E24F43FFFE39CB71");
     fmt_hex_bytes(appeui, "00000000000000A1");
     fmt_hex_bytes(appkey, "FA401D00EBF0F36C56E2D8409E2D5352");
@@ -242,10 +202,6 @@ void advertising_report_cb(le_advertising_info *adv_in)
                 ok = true;
             }
         }
-
-        // if (adv->data_RSSI[i] == 'R' && adv->data_RSSI[i+1] == 'I' && adv->data_RSSI[i+2] == 'O' && adv->data_RSSI[i+3] == 'T') {
-        //         ok = true;
-        //     }
     }
     if (!ok)
         return;
@@ -298,13 +254,6 @@ void advertising_report_cb(le_advertising_info *adv_in)
     }
     puts("--------------");
 
-    // printf("[+] data: %hhn\r\n", data);
-
-    // if (adv->data_length == 24) {
-    //     ok = true;
-    // }
-    // if(!ok) return;
-
 #ifdef DEBUG
     puts("=== Advertising report ===");
     printf(" evt_type = %d\n", adv->evt_type);
@@ -343,7 +292,6 @@ void advertising_report_cb(le_advertising_info *adv_in)
 
 isrpipe_t isrpipe;
 uint8_t isrpipe_buf[128];
-// uart_half_duplex_t hduplex;
 
 uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
     size_t read_bytes = 0;
@@ -354,9 +302,7 @@ uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
             return NULL;
         }
 
-        buf[read_bytes] = x;
-
-        read_bytes++;
+        buf[read_bytes++] = x;
 
         if (buf[read_bytes-1] == '\n') {
             break;
@@ -370,7 +316,6 @@ uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
 
 void uart_rx_cb(void *arg, uint8_t data) {
     (void) arg;
-
     isrpipe_write(&isrpipe, &data, 1);
 }
 
