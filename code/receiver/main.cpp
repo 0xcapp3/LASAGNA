@@ -44,7 +44,6 @@ SPBTLERFClass BTLE(BTLE_SPI, PIN_BLE_SPI_nCS, PIN_BLE_SPI_IRQ, PIN_BLE_SPI_RESET
 
 // #define DEBUG
 
-static const char message_structure[] = "{\"beacon_id\":\"%s\", \"receiver_id\":\"%d\", \"lat\":\"%f\", \"lon\":\"%f\", \"timestamp\":\"%d\"}";
 static semtech_loramac_t loramac;
 #if IS_USED(MODULE_SX127X)
 static sx127x_t sx127x;
@@ -56,15 +55,33 @@ static uint8_t appkey[LORAMAC_APPKEY_LEN];
 
 #define MESSAGE_MAXLEN (80U)
 
-int8_t sample_rate = 15; // X s
-
 // Last data received from GPS
 struct {
     float lat, lon;
     int timestamp;
 } gps_state = {0,0,0};
 
+
+// Ping data queue
+typedef struct {
+    uint8_t id[6];
+} ble_ping_t;
+
+constexpr int PING_QUEUE_LEN = 64;
+
+struct {
+    mutex_t mutex = MUTEX_INIT;
+    ble_ping_t list[PING_QUEUE_LEN];
+    size_t size = 0;
+} ping_queue;
+
+
 char lora_thread_stack[THREAD_STACKSIZE_MAIN];
+
+static const char message_structure[] = "{\"beacon_ids\":[%s], \"receiver_id\":\"%d\", \"lat\":\"%f\", \"lon\":\"%f\", \"timestamp\":\"%d\"}";
+char beacon_ids_buffer[PING_QUEUE_LEN * 15];
+char lora_buffer[sizeof(beacon_ids_buffer) + 256];
+int8_t sample_rate = 15; // X s
 
 void* lora_thread(void* arg)
 {
@@ -72,33 +89,46 @@ void* lora_thread(void* arg)
 
     puts("[+] LoRa thread...");
 
-    char buffer[200];
-    memset(buffer, 0, 200);
-
     while (1)
     {
         if(gps_state.timestamp == 0) {
             puts("Waiting for GPS lock");
         } else {
 
-            // Send data via Lora
-            // int id_bcn = 1234;
-            int id_rcvr = 001;
-            sprintf(buffer, message_structure, "Asd", id_rcvr, gps_state.lat, gps_state.lon, gps_state.timestamp);
-            printf("Sending: %s\r\n", buffer);
+            if(ping_queue.size == 0) {
+                puts("Ping queue empty, skipping send");
+            } else {
 
-            /* Try to send the message */
-            uint8_t ret = semtech_loramac_send(&loramac, (uint8_t *)buffer, strlen(buffer));
-            if (ret != SEMTECH_LORAMAC_TX_DONE)
-            {
-                printf("[X] Cannot send message '%s', returned code: %u\n", buffer, ret);
+                mutex_lock(&ping_queue.mutex);
+
+                for(size_t i = 0; i < ping_queue.size; i++) {
+                    ble_ping_t ping = ping_queue.list[i];
+
+                    sprintf(beacon_ids_buffer + i * 15, "\"%02X%02X%02X%02X%02X%02X\",", ping.id[0], ping.id[1], ping.id[2], ping.id[3], ping.id[4], ping.id[5]);
+                    if(i == ping_queue.size - 1)
+                        beacon_ids_buffer[15 * i + 14] = 0;
+                }
+                ping_queue.size = 0;
+
+                mutex_unlock(&ping_queue.mutex);
+
+                // Send data via Lora
+                int id_rcvr = 001;
+
+                sprintf(lora_buffer, message_structure, beacon_ids_buffer, id_rcvr, gps_state.lat, gps_state.lon, gps_state.timestamp);
+                printf("Sending: %s\r\n", lora_buffer);
+
+                /* Try to send the message */
+                uint8_t ret = semtech_loramac_send(&loramac, (uint8_t *)lora_buffer, strlen(lora_buffer));
+                if (ret != SEMTECH_LORAMAC_TX_DONE)
+                {
+                    printf("[X] Cannot send message '%s', returned code: %u\n", lora_buffer, ret);
+                }
             }
-            puts("--------------");
 
         }
         xtimer_sleep(sample_rate);
     }
-
     return NULL;
 }
 
@@ -137,7 +167,7 @@ int8_t lora_initialization(void) {
 
     u_int8_t tmp3[50];
     semtech_loramac_get_appkey(&loramac, tmp3);
-    printf("[+] appeui: %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x \r\n", tmp3[0], tmp3[1], tmp3[2], tmp3[3], tmp3[4], tmp3[5], tmp3[6], tmp3[7], tmp3[8], tmp3[9], tmp3[10], tmp3[11], tmp3[12], tmp3[13], tmp3[14], tmp3[15]);
+    printf("[+] appkey: %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x %x \r\n", tmp3[0], tmp3[1], tmp3[2], tmp3[3], tmp3[4], tmp3[5], tmp3[6], tmp3[7], tmp3[8], tmp3[9], tmp3[10], tmp3[11], tmp3[12], tmp3[13], tmp3[14], tmp3[15]);
 
     /* Use a fast datarate, e.g. BW125/SF7 in EU868 */
     semtech_loramac_set_dr(&loramac, 5);
@@ -179,12 +209,12 @@ void advertising_report_cb(le_advertising_info *adv_in)
     le_advertising_info *adv = (le_advertising_info *)tmp_buffer;
 
     bool ok = false;
-    uint8_t tmp_bid[6];
+    uint8_t bid[6];
     for (int i = 0; i + 15 < adv->data_length && !ok; i++)
     {
         if(!memcmp(adv->data_RSSI + i, "LASAGNA", 7))
         {
-            memcpy(tmp_bid, adv->data_RSSI + i + 10, 6);
+            memcpy(bid, adv->data_RSSI + i + 10, 6);
             ok = true;
         }
     }
@@ -193,21 +223,19 @@ void advertising_report_cb(le_advertising_info *adv_in)
 
     printf("[=] beacon id: ");
     for (int i = 0; i < 6; i++)
-    {
-        printf(" %02X", tmp_bid[i]);
-    }
+        printf(" %02X", bid[i]);
     printf("\r\n");
 
-    char bid[32];
-    snprintf(bid, sizeof(bid), "%02X %02X %02X %02X %02X %02X", tmp_bid[0], tmp_bid[1], tmp_bid[2], tmp_bid[3], tmp_bid[4], tmp_bid[5]);
+    mutex_lock(&ping_queue.mutex);
 
-    /* Try to send the message */
-    // uint8_t ret = semtech_loramac_send(&loramac, (uint8_t*) buffer, strlen(buffer));
-    // if (ret != SEMTECH_LORAMAC_TX_DONE) {
-    //     printf("Cannot send message '%s', returned code: %u\r\n", buffer, ret);
-    //     // return (-1);
-    // }
-    // puts("--------------");
+    if(ping_queue.size < PING_QUEUE_LEN) {
+        memcpy(&ping_queue.list[ping_queue.size], bid, 6);
+        ping_queue.size++;
+    } else {
+        puts("[+] Ping queue full, dropping packet");
+    }
+
+    mutex_unlock(&ping_queue.mutex);
 
 #ifdef DEBUG
     puts("=== Advertising report ===");
@@ -256,7 +284,6 @@ uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
     }
 
     buf[read_bytes] = '\0';
-
     return buf;
 }
 
@@ -313,10 +340,8 @@ int main() {
 
     // Connection initialization
     int8_t res = lora_initialization();
-    if (res != 0)
-    {
+    if (res != 0) {
         printf("[-] LoRa initialization failed with **Error %d**\r\n", res);
-        // return res;
     } else {
         puts("[+] LoRa initialization completed successfully\r\n");
 
@@ -326,8 +351,7 @@ int main() {
     }
 
     puts("[+] Starting BLE");
-    if (BTLE.begin())
-    {
+    if (BTLE.begin()) {
         puts("Bluetooth module configuration error!");
         while (1);
     }
@@ -341,8 +365,7 @@ int main() {
     }
 
     puts("[+] Initialized");
-    while (1)
-    {
+    while (1) {
         // Update the BLE module state
         BTLE.update();
     }
