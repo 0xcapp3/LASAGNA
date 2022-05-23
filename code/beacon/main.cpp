@@ -47,7 +47,37 @@ uint8_t beaconID[] = {0x1, 0x2, 0x3, 0x4, 0x5, 0x6};
 char url[] = "www.myurl.com";
 #endif
 
+void disable_unused_components()
+{
+    gpio_t wifi_reset = GPIO_PIN(PORT_E, 8);
+    gpio_t qspi_ncs = GPIO_PIN(PORT_E, 11);
+    gpio_t radio_ncs = GPIO_PIN(PORT_B, 5);
+    gpio_t VL53L0X_xshut = GPIO_PIN(PORT_C, 6);
+    gpio_t nfc_disable = GPIO_PIN(PORT_E, 2);
+
+    // Keep the wifi module in reset in order to save ~250mW
+    gpio_init(wifi_reset, GPIO_OUT);
+    gpio_clear(wifi_reset);
+
+    // QSPI consumes ~10mW if active
+    gpio_init(qspi_ncs, GPIO_OUT);
+    gpio_set(qspi_ncs);
+
+    // Disable the remaining components even if they don't significantly
+    // contribute to power consumption
+
+    gpio_init(radio_ncs, GPIO_OUT);
+    gpio_set(radio_ncs);
+
+    gpio_init(VL53L0X_xshut, GPIO_OUT);
+    gpio_set(VL53L0X_xshut);
+
+    gpio_init(nfc_disable, GPIO_OUT);
+    gpio_set(nfc_disable);
+}
+
 int main() {
+    disable_unused_components();
 
     puts("Starting");
     if(BTLE.begin())
