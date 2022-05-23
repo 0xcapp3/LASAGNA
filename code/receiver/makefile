@@ -16,16 +16,22 @@ DEVELHELP ?= 0
 QUIET ?= 1
 
 # shell
-USEMODULE += shell
-USEMODULE += shell_commands
+# USEMODULE += shell
+# USEMODULE += shell_commands
 
-USEMODULE += printf_float
+# USEMODULE += printf_float
+
+# USEMODULE += uart
+
+USEMODULE += isrpipe
 
 # GPS
 USEPKG += minmea
 
 USEMODULE += xtimer
 USEMODULE += fmt
+
+USEMODULE += printf_float
 
 # LoRa
 # Default region is Europe and default band is 868MHz

@@ -28,9 +28,12 @@
 
 // GPS includes
 #include "minmea.h"
+#include "periph/uart.h"
+// #include "uart_half_duplex.h"
+#include "isrpipe.h"
 
 // shell includes
-#include "shell.h"
+// #include "shell.h"
 
 // DISCO BOARD
 #ifdef BOARD_B_L475E_IOT01A
@@ -337,8 +340,82 @@ void advertising_report_cb(le_advertising_info *adv_in)
 
 // char line_buf[SHELL_DEFAULT_BUFSIZE];
 
+isrpipe_t isrpipe;
+uint8_t isrpipe_buf[128];
+// uart_half_duplex_t hduplex;
+
+uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
+    size_t read_bytes = 0;
+
+    while (read_bytes < buf_size - 1) {
+        uint8_t x;
+        if (isrpipe_read(&isrpipe, &x, 1) != 1) {
+            return NULL;
+        }
+
+        buf[read_bytes] = x;
+
+        read_bytes++;
+    
+        if (buf[read_bytes-1] == '\n') {
+            break;
+        }
+    }
+
+    buf[read_bytes] = '\0';
+
+    return buf;
+}
+
+void uart_rx_cb(void *arg, uint8_t data) {
+    (void) arg;
+
+    isrpipe_write(&isrpipe, &data, 1);
+}
+
+void gps_stream() {
+    isrpipe_init(&isrpipe, isrpipe_buf, sizeof(isrpipe_buf));
+
+    uart_init(UART_DEV(1), 9600, uart_rx_cb, NULL);
+    gpio_init(GPIO_PIN(PORT_A, 9), GPIO_IN); // PA9 is in conflict with the EEPROM CS on bluetooth schield, so we disabled uart tx pin
+
+    char line[MINMEA_MAX_LENGTH];
+    while (uart_read_line((uint8_t*) line, sizeof(line)) != NULL) {
+        // puts(line);
+        // continue;
+        int res = minmea_sentence_id(line, false);
+        // printf("Res code: %d\r\n", res);
+        switch (res) {
+            case MINMEA_SENTENCE_RMC: {
+                // puts("MINMEA RMC");
+                struct minmea_sentence_rmc frame;
+                if (minmea_parse_rmc(&frame, line)) {
+                    printf("$RMC: raw coordinates and speed: (%ld/%ld,%ld/%ld) %ld/%ld\n",
+                            frame.latitude.value, frame.latitude.scale,
+                            frame.longitude.value, frame.longitude.scale,
+                            frame.speed.value, frame.speed.scale);
+                    printf("$RMC fixed-point coordinates and speed scaled to three decimal places: (%ld,%ld) %ld\n",
+                            minmea_rescale(&frame.latitude, 1000),
+                            minmea_rescale(&frame.longitude, 1000),
+                            minmea_rescale(&frame.speed, 1000));
+                    printf("$RMC floating point degree coordinates and speed: (%f,%f) %f\n",
+                            minmea_tocoord(&frame.latitude),
+                            minmea_tocoord(&frame.longitude),
+                            minmea_tofloat(&frame.speed));
+                }
+            } break;
+
+            default:
+                // puts("NOT RMC");
+                break;
+        }
+    }
+}
+
 int main() {
     int8_t res;
+
+    gps_stream();
 
     puts("[+] Starting LoRa connection");
 
