@@ -93,6 +93,12 @@ static uint8_t appkey[LORAMAC_APPKEY_LEN];
 
 int8_t sample_rate = 15; // X s
 
+// Last data received from GPS
+struct {
+    float lat, lon;
+    int timestamp;
+} gps_state;
+
 // Functions
 int8_t lora_initialization(void) {
 
@@ -185,7 +191,7 @@ int _lora_thread(void)
     }
     puts("LoRa initialization completed successfully\r\n");
 
-    const char message_structure2[] = "{ id_beacon: %d, id_receiver: %d, lon: 50.3, lat: 12.6 , timestamp: 10 }";
+    const char message_structure2[] = "{ id_beacon: %d, id_receiver: %d, lon: %f, lat: %f , timestamp: %d }";
     char buffer[200];
     memset(buffer, 0, 200);
 
@@ -194,7 +200,7 @@ int _lora_thread(void)
         // Send data via Lora
         int id_bcn = 1234;
         int id_rcvr = 001;
-        sprintf(buffer, message_structure2, id_bcn, id_rcvr);
+        sprintf(buffer, message_structure2, id_bcn, id_rcvr, gps_state.lon, gps_state.lat, gps_state.timestamp);
         printf("Sending: %s\r\n", buffer);
 
         /* Try to send the message */
@@ -276,17 +282,12 @@ void advertising_report_cb(le_advertising_info *adv_in)
 
     int rid = 1;
 
-    float lat = 12.678;
-    float lon = 56.086;
-
-    int timestamp = 10001;
-
     char buffer[200];
     memset(buffer, 0, 200);
 
     // int id_bcn = 1234;
     // int id_rcvr = 001;
-    sprintf(buffer, message_structure, bid, rid, lat, lon, timestamp);
+    sprintf(buffer, message_structure, bid, rid, gps_state.lat, gps_state.lon, gps_state.timestamp);
     printf("Sending: %s\r\n", buffer);
 
     /* Try to send the message */
@@ -356,7 +357,7 @@ uint8_t* uart_read_line(uint8_t* buf, size_t buf_size) {
         buf[read_bytes] = x;
 
         read_bytes++;
-    
+
         if (buf[read_bytes-1] == '\n') {
             break;
         }
@@ -373,49 +374,49 @@ void uart_rx_cb(void *arg, uint8_t data) {
     isrpipe_write(&isrpipe, &data, 1);
 }
 
-void gps_stream() {
+char gps_thread_stack[THREAD_STACKSIZE_MAIN];
+
+void* gps_reader_thread(void* arg) {
+    (void)arg;
+    puts("[+] Starting GPS parser");
+
     isrpipe_init(&isrpipe, isrpipe_buf, sizeof(isrpipe_buf));
 
     uart_init(UART_DEV(1), 9600, uart_rx_cb, NULL);
-    gpio_init(GPIO_PIN(PORT_A, 9), GPIO_IN); // PA9 is in conflict with the EEPROM CS on bluetooth schield, so we disabled uart tx pin
+    gpio_init(GPIO_PIN(PORT_A, 9), GPIO_IN); // PA9 is in conflict with the EEPROM CS on bluetooth shield, so we disable the uart tx pin
+
+    puts("[+] GPS init OK");
 
     char line[MINMEA_MAX_LENGTH];
     while (uart_read_line((uint8_t*) line, sizeof(line)) != NULL) {
-        // puts(line);
-        // continue;
         int res = minmea_sentence_id(line, false);
-        // printf("Res code: %d\r\n", res);
-        switch (res) {
-            case MINMEA_SENTENCE_RMC: {
-                // puts("MINMEA RMC");
-                struct minmea_sentence_rmc frame;
-                if (minmea_parse_rmc(&frame, line)) {
-                    printf("$RMC: raw coordinates and speed: (%ld/%ld,%ld/%ld) %ld/%ld\n",
-                            frame.latitude.value, frame.latitude.scale,
-                            frame.longitude.value, frame.longitude.scale,
-                            frame.speed.value, frame.speed.scale);
-                    printf("$RMC fixed-point coordinates and speed scaled to three decimal places: (%ld,%ld) %ld\n",
-                            minmea_rescale(&frame.latitude, 1000),
-                            minmea_rescale(&frame.longitude, 1000),
-                            minmea_rescale(&frame.speed, 1000));
-                    printf("$RMC floating point degree coordinates and speed: (%f,%f) %f\n",
-                            minmea_tocoord(&frame.latitude),
-                            minmea_tocoord(&frame.longitude),
-                            minmea_tofloat(&frame.speed));
-                }
-            } break;
+        if (res == MINMEA_SENTENCE_RMC) {
+            struct minmea_sentence_rmc frame;
+            if (minmea_parse_rmc(&frame, line)) {
+                float lat = minmea_tocoord(&frame.latitude);
+                float lon = minmea_tocoord(&frame.longitude);
+                struct timespec ts;
 
-            default:
-                // puts("NOT RMC");
-                break;
+                if(!minmea_gettime(&ts, &frame.date, &frame.time) && !isnan(lat) && !isnan(lon)) {
+                    int timestamp = ts.tv_sec;
+                    printf("Updating GPS data, lat = %f, lon = %f, timestamp = %d\n", lat, lon, timestamp);
+                    gps_state.lat = lat;
+                    gps_state.lon = lon;
+                    gps_state.timestamp = timestamp;
+                }
+            }
         }
     }
+
+    return NULL;
 }
 
 int main() {
     int8_t res;
 
-    gps_stream();
+    thread_create(gps_thread_stack, sizeof(gps_thread_stack),
+        THREAD_PRIORITY_MAIN - 1, THREAD_CREATE_STACKTEST,
+        gps_reader_thread, NULL, "gps_reader_thread");
 
     puts("[+] Starting LoRa connection");
 
@@ -426,7 +427,7 @@ int main() {
         printf("[-] LoRa initialization failed with **Error %d**\r\n", res);
         return (res);
     }
-    puts("[+] LoRa initialization completed successfully\r\n");    
+    puts("[+] LoRa initialization completed successfully\r\n");
 
     puts("[+] Starting BLE");
     if (BTLE.begin())
