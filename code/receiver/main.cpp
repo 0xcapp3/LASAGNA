@@ -60,7 +60,7 @@ int8_t sample_rate = 15; // X s
 struct {
     float lat, lon;
     int timestamp;
-} gps_state;
+} gps_state = {0,0,0};
 
 // Functions
 int8_t lora_initialization(void) {
@@ -154,21 +154,26 @@ int _lora_thread(void)
 
     while (1)
     {
-        // Send data via Lora
-        int id_bcn = 1234;
-        int id_rcvr = 001;
-        sprintf(buffer, message_structure2, id_bcn, id_rcvr, gps_state.lon, gps_state.lat, gps_state.timestamp);
-        printf("Sending: %s\r\n", buffer);
+        if(gps_state.timestamp == 0) {
+            puts("Waiting for GPS lock");
+        } else {
 
-        /* Try to send the message */
-        ret = semtech_loramac_send(&loramac, (uint8_t *)buffer, strlen(buffer));
-        if (ret != SEMTECH_LORAMAC_TX_DONE)
-        {
-            printf("Cannot send message '%s', returned code: %u\n", buffer, ret);
-            return (-1);
+            // Send data via Lora
+            int id_bcn = 1234;
+            int id_rcvr = 001;
+            sprintf(buffer, message_structure2, id_bcn, id_rcvr, gps_state.lon, gps_state.lat, gps_state.timestamp);
+            printf("Sending: %s\r\n", buffer);
+
+            /* Try to send the message */
+            ret = semtech_loramac_send(&loramac, (uint8_t *)buffer, strlen(buffer));
+            if (ret != SEMTECH_LORAMAC_TX_DONE)
+            {
+                printf("Cannot send message '%s', returned code: %u\n", buffer, ret);
+                return (-1);
+            }
+            puts("--------------");
+
         }
-        puts("--------------");
-
         xtimer_sleep(sample_rate);
     }
 
@@ -224,8 +229,6 @@ void advertising_report_cb(le_advertising_info *adv_in)
     }
     printf("\r\n");
 
-
-    uint8_t ret;
     char bid[6];
     // const char* bid_format = "%02X %02X %02X %02X %02X %02X";
     int length = snprintf(NULL, 0, "%02X %02X %02X %02X %02X %02X", tmp_bid[0], tmp_bid[1], tmp_bid[2], tmp_bid[3], tmp_bid[4], tmp_bid[5]);
@@ -244,7 +247,7 @@ void advertising_report_cb(le_advertising_info *adv_in)
     printf("Sending: %s\r\n", buffer);
 
     /* Try to send the message */
-    ret = semtech_loramac_send(&loramac, (uint8_t*) buffer, strlen(buffer));
+    uint8_t ret = semtech_loramac_send(&loramac, (uint8_t*) buffer, strlen(buffer));
     if (ret != SEMTECH_LORAMAC_TX_DONE) {
         printf("Cannot send message '%s', returned code: %u\r\n", buffer, ret);
         // return (-1);
@@ -321,21 +324,23 @@ void* gps_reader_thread(void* arg) {
     puts("[+] GPS init OK");
 
     char line[MINMEA_MAX_LENGTH];
-    while (uart_read_line((uint8_t*) line, sizeof(line)) != NULL) {
-        int res = minmea_sentence_id(line, false);
-        if (res == MINMEA_SENTENCE_RMC) {
-            struct minmea_sentence_rmc frame;
-            if (minmea_parse_rmc(&frame, line)) {
-                float lat = minmea_tocoord(&frame.latitude);
-                float lon = minmea_tocoord(&frame.longitude);
-                struct timespec ts;
+    while(1) {
+        if(uart_read_line((uint8_t*) line, sizeof(line)) != NULL) {
+            int res = minmea_sentence_id(line, false);
+            if (res == MINMEA_SENTENCE_RMC) {
+                struct minmea_sentence_rmc frame;
+                if (minmea_parse_rmc(&frame, line)) {
+                    float lat = minmea_tocoord(&frame.latitude);
+                    float lon = minmea_tocoord(&frame.longitude);
+                    struct timespec ts;
 
-                if(!minmea_gettime(&ts, &frame.date, &frame.time) && !isnan(lat) && !isnan(lon)) {
-                    int timestamp = ts.tv_sec;
-                    printf("Updating GPS data, lat = %f, lon = %f, timestamp = %d\n", lat, lon, timestamp);
-                    gps_state.lat = lat;
-                    gps_state.lon = lon;
-                    gps_state.timestamp = timestamp;
+                    if(!minmea_gettime(&ts, &frame.date, &frame.time) && !isnan(lat) && !isnan(lon)) {
+                        int timestamp = ts.tv_sec;
+                        printf("Updating GPS data, lat = %f, lon = %f, timestamp = %d\n", lat, lon, timestamp);
+                        gps_state.lat = lat;
+                        gps_state.lon = lon;
+                        gps_state.timestamp = timestamp;
+                    }
                 }
             }
         }
