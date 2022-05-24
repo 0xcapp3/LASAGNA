@@ -53,8 +53,6 @@ static uint8_t deveui[LORAMAC_DEVEUI_LEN];
 static uint8_t appeui[LORAMAC_APPEUI_LEN];
 static uint8_t appkey[LORAMAC_APPKEY_LEN];
 
-#define MESSAGE_MAXLEN (80U)
-
 // Last data received from GPS
 struct {
     float lat, lon;
