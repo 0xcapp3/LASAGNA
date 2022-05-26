@@ -21,7 +21,7 @@ USEMODULE += SimpleBlueNRG_HCI
 EXTERNAL_MODULE_DIRS += $(CURDIR)/../SPBTLE-RF-RIOT
 EXTERNAL_MODULE_DIRS += $(CURDIR)/../SPBTLE-RF-RIOT/spbtlerf
 
-USEMODULE += xtimer
+USEMODULE += ztimer_sec
 USEMODULE += fmt
 
 include $(RIOTBASE)/Makefile.include

@@ -3,6 +3,7 @@
 #include <periph/spi.h>
 #include "SPBTLE_RF.hpp"
 #include "beacon_service.h"
+#include "ztimer.h"
 
 // DISCO BOARD
 #ifdef BOARD_B_L475E_IOT01A
@@ -76,9 +77,14 @@ void disable_unused_components()
     gpio_set(nfc_disable);
 }
 
-int main() {
-    disable_unused_components();
+uint8_t stop_ble = 0;
 
+void timer_callback(void *arg) {
+    (void) arg;
+    stop_ble = 1;
+}
+
+void send_id() {
     puts("Starting");
     if(BTLE.begin())
     {
@@ -112,8 +118,27 @@ int main() {
     #endif
 
     puts("Initialized");
-    while(1) {
+
+    stop_ble = 0;
+
+    ztimer_t timeout;
+    timeout.callback = timer_callback;
+    timeout.arg = NULL;
+    ztimer_set(ZTIMER_SEC, &timeout, 5);
+
+    while(!stop_ble) {
         // Update the BLE module state
         BTLE.update();
+    }
+
+    puts("Stopped");
+}
+
+int main() {
+    disable_unused_components();
+
+    while(1) {
+        send_id();
+        ztimer_sleep(ZTIMER_SEC, 15);
     }
 }
