@@ -28,10 +28,12 @@ Power consumption is the most critical on BLE beacons as they have to be battery
 
 (From DOI: 10.1080/03088830902861086, Maritime Policy & Management · April 2009)
 
-Given this information, we target a minimum lifetime of around 20 days for the beacons. Power analysis will be performed and compared to the capacity of batteries (most likely 3xAAA to remain similar to the received board) so that the solution can be evaluated and optimized if necessary. The following optimizations have been outlined and will be taken in consideration if necessary:
+Given this information, we target a minimum lifetime of around 20 days for the beacons. Power analysis will be performed and compared to the capacity of batteries (most likely 3xAA to remain similar to the receiver board) so that the solution can be evaluated and optimized if necessary. The following optimizations have been implemented to reduce power consumption:
 
 - CPU sleep between timer interrupts
 - Powering off the BLE module when not in use
+
+Additionally, the following was considered but ruled out:
 - Integrating a motion sensor to reduce ping rate when a container is stationary
 
 ## Response time
